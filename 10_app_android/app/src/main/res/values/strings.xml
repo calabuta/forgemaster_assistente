@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ForgeMaster Assistente</string>
+    <string name="capture_channel_name">Sessão de leitura</string>
+    <string name="capture_notification_title">ForgeMaster Assistente ativo</string>
+    <string name="capture_notification_text">Toque na bolha para analisar uma tela.</string>
+</resources>

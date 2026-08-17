@@ -1,0 +1,24 @@
+# macOS e IDE
+.DS_Store
+.idea/
+*.iml
+
+# Android e Gradle gerados localmente
+10_app_android/.gradle/
+10_app_android/.kotlin/
+10_app_android/local.properties
+10_app_android/**/build/
+10_app_android/**/.cxx/
+10_app_android/**/.externalNativeBuild/
+
+# Assinatura e configuracoes locais
+*.jks
+*.keystore
+keystore.properties
+
+# Artefatos binarios de entrega; gerar localmente ou publicar como Release
+90_saidas/*.apk
+
+# Temporarios e logs
+*.log
+*.tmp
