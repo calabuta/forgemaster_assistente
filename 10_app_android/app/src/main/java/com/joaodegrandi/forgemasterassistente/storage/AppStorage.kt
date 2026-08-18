@@ -13,10 +13,13 @@ import com.joaodegrandi.forgemasterassistente.model.SourceId
 import com.joaodegrandi.forgemasterassistente.model.SourceRecord
 import com.joaodegrandi.forgemasterassistente.model.UndoState
 import com.joaodegrandi.forgemasterassistente.model.WeaponMode
+import com.joaodegrandi.forgemasterassistente.parser.EquipmentSlotDetector
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
 private val Context.forgeMasterDataStore by preferencesDataStore(name = "forgemaster_state")
@@ -26,6 +29,10 @@ class AppStorage(private val context: Context) {
         encodeDefaults = true
         ignoreUnknownKeys = true
     }
+    private val learnedEquipmentNamesSerializer = MapSerializer(
+        String.serializer(),
+        SourceId.serializer(),
+    )
 
     val buildFlow: Flow<BuildState> = valueFlow(Keys.BUILD, BuildState.serializer(), BuildState())
     val calibrationFlow: Flow<CalibrationDraft> = valueFlow(
@@ -48,6 +55,11 @@ class AppStorage(private val context: Context) {
             }.getOrNull()
         } ?: DefaultCropProfiles.profiles
     }
+    val learnedEquipmentNamesFlow: Flow<Map<String, SourceId>> = valueFlow(
+        Keys.LEARNED_EQUIPMENT_NAMES,
+        learnedEquipmentNamesSerializer,
+        emptyMap(),
+    )
 
     suspend fun saveWeaponMode(mode: WeaponMode) {
         context.forgeMasterDataStore.edit {
@@ -140,10 +152,27 @@ class AppStorage(private val context: Context) {
         context.forgeMasterDataStore.edit { it.remove(Keys.CROPS) }
     }
 
+    suspend fun learnEquipmentNames(names: List<String>, sourceId: SourceId) {
+        context.forgeMasterDataStore.edit { preferences ->
+            val current = preferences.decodeOrDefault(
+                Keys.LEARNED_EQUIPMENT_NAMES,
+                learnedEquipmentNamesSerializer,
+                emptyMap(),
+            )
+            val updated = EquipmentSlotDetector.learnNames(current, names, sourceId)
+            preferences[Keys.LEARNED_EQUIPMENT_NAMES] = json.encodeToString(
+                learnedEquipmentNamesSerializer,
+                updated,
+            )
+        }
+    }
+
     suspend fun currentBuild(): BuildState = buildFlow.first()
     suspend fun currentMode(): WeaponMode = weaponModeFlow.first()
     suspend fun currentCalibration(): CalibrationDraft = calibrationFlow.first()
     suspend fun currentCropProfiles(): List<CropProfile> = cropProfilesFlow.first()
+    suspend fun currentLearnedEquipmentNames(): Map<String, SourceId> =
+        learnedEquipmentNamesFlow.first()
 
     private fun <T> valueFlow(
         key: Preferences.Key<String>,
@@ -179,5 +208,6 @@ class AppStorage(private val context: Context) {
         val WEAPON_MODE = stringPreferencesKey("weapon_mode")
         val UNDO = stringPreferencesKey("undo_json")
         val CROPS = stringPreferencesKey("crop_profiles_json")
+        val LEARNED_EQUIPMENT_NAMES = stringPreferencesKey("learned_equipment_names_json")
     }
 }

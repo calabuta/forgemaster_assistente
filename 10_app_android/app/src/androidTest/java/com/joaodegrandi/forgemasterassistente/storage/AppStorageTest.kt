@@ -65,6 +65,15 @@ class AppStorageTest {
             persistedPets.source(it) != null
         })
         assertEquals("250", persistedPets.source(SourceId.PET_2)?.baseDamage?.value)
+
+        storage.learnEquipmentNames(
+            listOf("Grip of Torment", "Phase Shift"),
+            SourceId.GLOVE,
+        )
+        storage.learnEquipmentNames(listOf("Phase Shift"), SourceId.RING)
+        val learnedNames = storage.learnedEquipmentNamesFlow.first()
+        assertEquals(SourceId.GLOVE, learnedNames["grip of torment"])
+        assertEquals(SourceId.GLOVE, learnedNames["phase shift"])
     }
 
     private fun glove(damage: String) = SourceRecord(

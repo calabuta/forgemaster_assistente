@@ -23,7 +23,10 @@ import android.os.HandlerThread
 import android.os.IBinder
 import android.provider.Settings
 import android.text.Editable
+import android.text.Spannable
+import android.text.SpannableString
 import android.text.TextWatcher
+import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -52,6 +55,7 @@ import com.joaodegrandi.forgemasterassistente.model.SourceRecord
 import com.joaodegrandi.forgemasterassistente.model.WeaponMode
 import com.joaodegrandi.forgemasterassistente.model.mainStatExpectation
 import com.joaodegrandi.forgemasterassistente.ocr.MlKitOcrEngine
+import com.joaodegrandi.forgemasterassistente.parser.EquipmentSlotDetector
 import com.joaodegrandi.forgemasterassistente.parser.StatParser
 import com.joaodegrandi.forgemasterassistente.scoring.ReplacementEvaluator
 import com.joaodegrandi.forgemasterassistente.storage.AppStorage
@@ -191,11 +195,14 @@ class CaptureOverlayService : Service() {
 
     private fun processCapturedBitmap(bitmap: Bitmap) {
         serviceScope.launch {
-            val draft = storage.currentCalibration()
-            val target = calibrationTarget ?: draft.currentSource
             val crops = storage.currentCropProfiles()
+            val learnedEquipmentNames = storage.currentLearnedEquipmentNames()
             val result = try {
-                ocrEngine.read(bitmap, target, crops)
+                ocrEngine.read(
+                    bitmap,
+                    cropProfiles = crops,
+                    learnedEquipmentNames = learnedEquipmentNames,
+                )
             } catch (error: Throwable) {
                 null
             } finally {
@@ -205,22 +212,18 @@ class CaptureOverlayService : Service() {
                 if (result == null) {
                     showTemporaryCard("INCONCLUSIVO\nFalha ao executar o OCR. Tente novamente.")
                 } else {
-                    presentReadResult(result, target)
+                    presentReadResult(result)
                 }
             }
         }
     }
 
-    private fun presentReadResult(result: OcrReadResult, target: SourceId?) {
+    private fun presentReadResult(result: OcrReadResult) {
         if (result.sources.isEmpty()) {
             showTemporaryCard(
                 "${if (result.requiresReview) "INCONCLUSIVO" else "LEITURA"}\n${result.message}\n" +
                     result.rawLines.take(8).joinToString("\n") { it.text },
             )
-            return
-        }
-        if (target != null) {
-            showSourceEditor(result.sources.first(), target, EditorPurpose.CALIBRATION, result)
             return
         }
         when (result.panelType) {
@@ -233,48 +236,107 @@ class CaptureOverlayService : Service() {
                 }
                 serviceScope.launch {
                     val build = storage.currentBuild()
-                    val matches = build.sources.filter { source ->
+                    val learnedEquipmentNames = storage.currentLearnedEquipmentNames()
+                    val savedMatch = build.sources.filter { source ->
                         source.id in EQUIPMENT_IDS &&
                             source.name.normalized() == equipped.name.normalized()
+                    }.singleOrNull()?.id
+                    val comparedNames = listOf(equipped.name, candidate.name)
+                    val detected = EquipmentSlotDetector.detectCompatible(
+                        comparedNames,
+                        learnedEquipmentNames,
+                    )
+                    val sourceId = detected ?: savedMatch
+                    if (
+                        sourceId != null &&
+                        comparedNames.none { name ->
+                            EquipmentSlotDetector.conflictsWith(
+                                sourceId,
+                                name,
+                                learnedEquipmentNames,
+                            )
+                        }
+                    ) {
+                        storage.learnEquipmentNames(comparedNames, sourceId)
                     }
                     withContext(Dispatchers.Main) {
                         showSourceEditor(
                             candidate,
-                            matches.singleOrNull()?.id,
+                            sourceId,
                             EditorPurpose.COMPARISON,
                             result,
                             selectableIds = EQUIPMENT_IDS,
+                            learnedEquipmentNames = learnedEquipmentNames,
                         )
                     }
                 }
             }
-            PanelType.MOUNT_DETAIL -> showSourceEditor(
-                result.sources.first(),
-                SourceId.MOUNT,
-                EditorPurpose.COMPARISON,
-                result,
-            )
-            PanelType.PET_DETAIL -> showSourceEditor(
-                result.sources.first(),
-                SourceId.PET_1,
-                EditorPurpose.PET_COMPARISON,
-                result,
-                selectableIds = PET_IDS,
-            )
+            PanelType.MOUNT_DETAIL,
+            PanelType.PET_DETAIL,
+            -> serviceScope.launch {
+                val calibration = storage.currentCalibration()
+                val hasActiveDraft = calibration.currentSource != null ||
+                    calibration.build.sources.isNotEmpty()
+                val calibrationId = if (!hasActiveDraft) null else {
+                    when (result.panelType) {
+                        PanelType.MOUNT_DETAIL -> SourceId.MOUNT.takeIf {
+                            calibration.currentSource == SourceId.MOUNT ||
+                                (SourceId.MOUNT in calibration.selectedSources &&
+                                    calibration.build.source(SourceId.MOUNT) == null)
+                        }
+                        PanelType.PET_DETAIL ->
+                            calibration.currentSource?.takeIf { it in PET_IDS }
+                                ?: calibration.selectedSources.firstOrNull { id ->
+                                    id in PET_IDS && calibration.build.source(id) == null
+                                }
+                    }
+                }
+                withContext(Dispatchers.Main) {
+                    when {
+                        calibrationId != null -> showSourceEditor(
+                            result.sources.first(),
+                            calibrationId,
+                            EditorPurpose.CALIBRATION,
+                            result,
+                        )
+                        result.panelType == PanelType.MOUNT_DETAIL -> showSourceEditor(
+                            result.sources.first(),
+                            SourceId.MOUNT,
+                            EditorPurpose.COMPARISON,
+                            result,
+                        )
+                        else -> showSourceEditor(
+                            result.sources.first(),
+                            SourceId.PET_1,
+                            EditorPurpose.PET_COMPARISON,
+                            result,
+                            selectableIds = PET_IDS,
+                        )
+                    }
+                }
+            }
             PanelType.EQUIPMENT_DETAIL,
             PanelType.SKILLS,
             -> serviceScope.launch {
-                val build = storage.currentBuild()
                 val recognized = result.sources.first()
+                val learnedEquipmentNames = storage.currentLearnedEquipmentNames()
                 val inferred = if (result.panelType == PanelType.SKILLS) SourceId.SKILLS else {
-                    build.sources.filter { it.name.normalized() == recognized.name.normalized() }
-                        .singleOrNull()?.id
+                    EquipmentSlotDetector.detect(recognized.name, learnedEquipmentNames)
                 }
                 withContext(Dispatchers.Main) {
                     if (inferred == null) {
-                        showTemporaryCard("INCONCLUSIVO\nSelecione a fonte pelo toque longo e capture novamente.")
+                        showTemporaryCard(
+                            "INCONCLUSIVO\nO nome do equipamento não foi lido com segurança. " +
+                                "Capture novamente ou corrija o recorte.",
+                        )
                     } else {
-                        showSourceEditor(recognized, inferred, EditorPurpose.CALIBRATION, result)
+                        showSourceEditor(
+                            recognized,
+                            inferred,
+                            EditorPurpose.CALIBRATION,
+                            result,
+                            learnedEquipmentNames = learnedEquipmentNames,
+                        )
                     }
                 }
             }
@@ -288,6 +350,7 @@ class CaptureOverlayService : Service() {
         purpose: EditorPurpose,
         readResult: OcrReadResult,
         selectableIds: List<SourceId> = emptyList(),
+        learnedEquipmentNames: Map<String, SourceId> = emptyMap(),
     ) {
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -305,11 +368,17 @@ class CaptureOverlayService : Service() {
         val summary = content.textView("Recalculando…", 15f, true)
         content.textView("OCR: ${(readResult.confidence * 100).toInt()}%", 12f)
 
-        val sourceSpinner = if (selectableIds.isNotEmpty()) {
+        val effectiveSelectableIds = selectableIds.takeUnless {
+            purpose == EditorPurpose.COMPARISON && initialSourceId in EQUIPMENT_IDS
+        }.orEmpty()
+        val sourceSpinner = if (effectiveSelectableIds.isNotEmpty()) {
             Spinner(this).also { spinner ->
-                val labels = listOf("Selecione o slot") + selectableIds.map { it.displayName() }
+                val labels = listOf("Selecione o slot") + effectiveSelectableIds.map { it.displayName() }
                 spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, labels)
-                val initialIndex = initialSourceId?.let(selectableIds::indexOf)?.takeIf { it >= 0 }?.plus(1) ?: 0
+                val initialIndex = initialSourceId?.let(effectiveSelectableIds::indexOf)
+                    ?.takeIf { it >= 0 }
+                    ?.plus(1)
+                    ?: 0
                 spinner.setSelection(initialIndex)
                 content.addView(spinner)
             }
@@ -328,15 +397,30 @@ class CaptureOverlayService : Service() {
         )
         val sub1 = content.editField("Substat 1", draft.subStats.getOrNull(0)?.rawText.orEmpty())
         val sub2 = content.editField("Substat 2", draft.subStats.getOrNull(1)?.rawText.orEmpty())
-        var valuesConfirmed = readResult.confidence >= MIN_CONFIDENCE && !readResult.requiresReview
+        var valuesConfirmed = purpose != EditorPurpose.CALIBRATION ||
+            (readResult.confidence >= MIN_CONFIDENCE && !readResult.requiresReview)
         var latestRecord: SourceRecord? = null
         var latestSourceId: SourceId? = initialSourceId
         var recomputeJob: Job? = null
 
         fun selectedId(): SourceId? {
-            if (selectableIds.isEmpty()) return initialSourceId
+            if (effectiveSelectableIds.isEmpty()) {
+                return if (
+                    purpose == EditorPurpose.COMPARISON &&
+                    initialSourceId in EQUIPMENT_IDS
+                ) {
+                    initialSourceId
+                } else if (initialSourceId in EQUIPMENT_IDS) {
+                    EquipmentSlotDetector.detect(
+                        name.text.toString(),
+                        learnedEquipmentNames,
+                    )
+                } else {
+                    initialSourceId
+                }
+            }
             val position = sourceSpinner?.selectedItemPosition ?: 0
-            return selectableIds.getOrNull(position - 1)
+            return effectiveSelectableIds.getOrNull(position - 1)
         }
 
         fun recompute() {
@@ -345,7 +429,19 @@ class CaptureOverlayService : Service() {
                 val sourceId = selectedId()
                 val activeMode = storage.currentMode()
                 latestSourceId = sourceId
-                val record = sourceId?.let { id ->
+                val detectedEquipmentId = EquipmentSlotDetector.detect(
+                    name.text.toString(),
+                    learnedEquipmentNames,
+                )
+                val equipmentSlotMismatch = sourceId?.let { id ->
+                    id in EQUIPMENT_IDS &&
+                        EquipmentSlotDetector.conflictsWith(
+                            id,
+                            name.text.toString(),
+                            learnedEquipmentNames,
+                        )
+                } == true
+                val record = sourceId?.takeUnless { equipmentSlotMismatch }?.let { id ->
                     buildRecord(
                         id, name.text.toString(), rarity.text.toString(), level.text.toString(),
                         damage.text.toString(), health.text.toString(),
@@ -354,7 +450,18 @@ class CaptureOverlayService : Service() {
                 }
                 latestRecord = record
                 val message = when {
+                    sourceId == null && (
+                        initialSourceId in EQUIPMENT_IDS ||
+                            effectiveSelectableIds.any { it in EQUIPMENT_IDS }
+                    ) -> "INCONCLUSIVO\nO nome não contém um tipo de equipamento reconhecido."
                     sourceId == null -> "INCONCLUSIVO\nSelecione o slot correto."
+                    purpose == EditorPurpose.CALIBRATION &&
+                        sourceId in EQUIPMENT_IDS && detectedEquipmentId == null ->
+                        "INCONCLUSIVO\nO nome não contém um tipo de equipamento reconhecido."
+                    equipmentSlotMismatch ->
+                        "INCONCLUSIVO\nO nome pertence a " +
+                            "${detectedEquipmentId?.displayName() ?: "outro slot"}, " +
+                            "não a ${sourceId.displayName()}."
                     record == null || !record.isComplete() ->
                         "INCONCLUSIVO\nRevise os campos obrigatórios."
                     !valuesConfirmed ->
@@ -379,7 +486,7 @@ class CaptureOverlayService : Service() {
                     )
                 }
                 withContext(Dispatchers.Main) {
-                    summary.text = "Modo ativo: ${activeMode.name}\n$message"
+                    summary.showRecommendation(activeMode, message)
                 }
             }
         }
@@ -395,22 +502,34 @@ class CaptureOverlayService : Service() {
         listOf(name, rarity, level, damage, health, sub1, sub2).forEach { it.addTextChangedListener(watcher) }
         sourceSpinner?.setOnItemSelectedListener(SimpleItemSelectedListener { recompute() })
 
-        if (!valuesConfirmed) {
-            content.actionButton("Confirmar valores reconhecidos") {
-                valuesConfirmed = true
-                recompute()
-            }
+        if (purpose != EditorPurpose.CALIBRATION) {
+            content.actionButton("Descartar leitura") { hideCard() }
         }
         content.actionButton(
-            when (purpose) {
-                EditorPurpose.CALIBRATION -> "Salvar no rascunho"
+            when {
+                purpose == EditorPurpose.CALIBRATION && !valuesConfirmed ->
+                    "Confirmar e salvar no rascunho"
+                purpose == EditorPurpose.CALIBRATION -> "Salvar no rascunho"
                 else -> "Equipei no jogo"
             },
         ) {
             val record = latestRecord
             val sourceId = latestSourceId
+            if (
+                purpose == EditorPurpose.CALIBRATION &&
+                !valuesConfirmed &&
+                record != null &&
+                sourceId != null &&
+                record.isComplete()
+            ) {
+                valuesConfirmed = true
+            }
             if (!valuesConfirmed || record == null || sourceId == null || !record.isComplete()) {
-                summary.text = "INCONCLUSIVO\nConfirme e corrija os valores antes de salvar."
+                summary.text = if (purpose == EditorPurpose.CALIBRATION) {
+                    "INCONCLUSIVO\nConfirme e corrija os valores antes de salvar."
+                } else {
+                    "INCONCLUSIVO\nRevise os campos obrigatórios ou releia a tela."
+                }
                 return@actionButton
             }
             serviceScope.launch {
@@ -422,18 +541,30 @@ class CaptureOverlayService : Service() {
                     storage.saveCalibrationSource(record, selected)
                     calibrationTarget = null
                 } else {
-                    storage.confirmReplacement(sourceId, record)
+                    val replacement = ReplacementEvaluator.normalizedCandidateForReplacement(
+                        storage.currentBuild(),
+                        sourceId,
+                        record,
+                    )
+                    if (replacement == null) {
+                        withContext(Dispatchers.Main) {
+                            summary.text = "INCONCLUSIVO\nRevise o nível atual e o do candidato."
+                        }
+                        return@launch
+                    }
+                    storage.confirmReplacement(sourceId, replacement)
                 }
                 withContext(Dispatchers.Main) {
-                    showTemporaryCard(
-                        if (purpose == EditorPurpose.CALIBRATION) {
-                            "Fonte salva no rascunho. Confirme a calibração quando terminar."
-                        } else {
-                            "Troca registrada. A build salva já é a nova base."
-                        },
-                    )
+                    if (purpose == EditorPurpose.CALIBRATION) {
+                        hideCard()
+                    } else {
+                        showTemporaryCard("Troca registrada. A build salva já é a nova base.")
+                    }
                 }
             }
+        }
+        if (purpose != EditorPurpose.CALIBRATION) {
+            content.actionButton("Reler tela") { requestSingleCapture() }
         }
         content.actionButton("Alternar modo Melee/Ranged") {
             serviceScope.launch {
@@ -458,7 +589,9 @@ class CaptureOverlayService : Service() {
                 }
             }
         }
-        content.actionButton("Descartar leitura") { hideCard() }
+        if (purpose == EditorPurpose.CALIBRATION) {
+            content.actionButton("Descartar leitura") { hideCard() }
+        }
 
         showCard(content)
         recompute()
@@ -663,6 +796,7 @@ class CaptureOverlayService : Service() {
         sub1: String,
         sub2: String,
     ): SourceRecord? {
+        if (id != SourceId.SKILLS && name.isBlank()) return null
         val expectation = id.mainStatExpectation()
         fun field(raw: String, expected: FieldExpectation): NumericField? = when (expected) {
             FieldExpectation.ABSENT -> NumericField.expectedAbsent()
@@ -696,10 +830,11 @@ class CaptureOverlayService : Service() {
         val delta = result.delta?.multiply(BigDecimal("100"))
             ?.setScale(2, RoundingMode.HALF_UP)
             ?.toPlainString()
+        val normalizedLevel = result.normalizedLevel?.let { " · NORMALIZADO LV. $it" }.orEmpty()
         val header = when (result.recommendation) {
-            Recommendation.EQUIPAR -> "EQUIPAR  +${delta}%"
-            Recommendation.VENDER -> "VENDER  ${delta}%"
-            Recommendation.INCONCLUSIVO -> "INCONCLUSIVO"
+            Recommendation.EQUIPAR -> "MANTER  +${delta}%$normalizedLevel"
+            Recommendation.VENDER -> "VENDER  ${delta}%$normalizedLevel"
+            Recommendation.INCONCLUSIVO -> "INCONCLUSIVO$normalizedLevel"
         }
         val changes = result.changes.joinToString("\n") { change ->
             val ignored = if (change.affectsDecision) "" else " (ignorado na decisão)"
@@ -826,6 +961,26 @@ class CaptureOverlayService : Service() {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ).apply { topMargin = dp(6) })
         }
+
+    private fun TextView.showRecommendation(mode: WeaponMode, message: String) {
+        val prefix = "Modo ativo: ${mode.name}\n"
+        val fullText = prefix + message
+        text = SpannableString(fullText).apply {
+            Regex("(?:MANTER|VENDER)[^\\n]*").findAll(message).forEach { match ->
+                val color = if (match.value.startsWith("MANTER")) {
+                    Color.rgb(0, 132, 67)
+                } else {
+                    Color.rgb(198, 40, 40)
+                }
+                setSpan(
+                    ForegroundColorSpan(color),
+                    prefix.length + match.range.first,
+                    prefix.length + match.range.last + 1,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+            }
+        }
+    }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 

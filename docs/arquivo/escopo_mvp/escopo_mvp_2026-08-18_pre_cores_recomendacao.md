@@ -283,17 +283,6 @@ selecionada, sem comparação lado a lado. O app deve:
 3. mostrar o dano antes, o dano depois, o delta e todos os atributos alterados;
 4. atualizar o slot de montaria somente depois da confirmação do usuário.
 
-O nível representa investimento transferível e não deve favorecer sozinho uma
-das montarias. Antes do cálculo, as duas fontes são normalizadas para o maior
-nível entre a montaria atual e a candidata. Dano e vida de cada uma partem de
-seus próprios valores reconhecidos — preservando as diferenças de nome e
-raridade — e usam crescimento composto de `0,6%` por nível:
-
-```text
-valor_normalizado = valor_lido × 1,006 ^ (nível_alvo - nível_lido)
-nível_alvo = max(nível_atual, nível_candidato)
-```
-
 ### Pets
 
 Pets ficam em um inventário próprio e também não possuem tela de comparação. A
@@ -305,21 +294,6 @@ delta_pet_1 = dano(build_atual - pet_1 + candidato) / dano(build_atual) - 1
 delta_pet_2 = dano(build_atual - pet_2 + candidato) / dano(build_atual) - 1
 delta_pet_3 = dano(build_atual - pet_3 + candidato) / dano(build_atual) - 1
 ```
-
-Cada cenário normaliza o candidato e o pet daquele slot para o maior dos dois
-níveis. Como os três pets ativos podem estar em níveis diferentes, o nível-alvo
-é calculado novamente para `Pet 1`, `Pet 2` e `Pet 3`. Dano e vida continuam
-partindo dos valores próprios de cada nome e raridade, com crescimento composto
-de `1%` por nível:
-
-```text
-valor_normalizado = valor_lido × 1,01 ^ (nível_alvo - nível_lido)
-nível_alvo = max(nível_do_pet_do_slot, nível_candidato)
-```
-
-Uma fonte nunca é reduzida de nível para a comparação. Se qualquer nível
-necessário estiver ausente ou inválido, o cenário permanece `INCONCLUSIVO` em
-vez de estimar um valor.
 
 A sobreposição deve mostrar o resultado contra cada pet atual e destacar a
 substituição que produz o maior dano total. O candidato é melhor se pelo menos
@@ -404,18 +378,13 @@ afeta a recomendação de dano da V1.
 
 ## Saída na sobreposição
 
-Exemplo de recomendação positiva:
+Exemplo:
 
 ```text
-MANTER  +3,7% dano melee
+EQUIPAR  +3,7% dano melee
 +49% Melee Damage supera a perda de 16,4% Lifesteal.
 OCR: 96%  |  Toque para ver os valores lidos
 ```
-
-Na sobreposição, `MANTER` e a porcentagem positiva devem aparecer em verde;
-`VENDER` e a porcentagem negativa devem aparecer em vermelho. `INCONCLUSIVO`
-permanece com cor neutra. `MANTER` significa conservar/equipar o candidato; a
-confirmação da alteração da build continua sendo feita por `Equipei no jogo`.
 
 Ao expandir a sobreposição, o usuário deve ver uma comparação auditável. O
 número de poder não deve aparecer:

@@ -171,6 +171,7 @@ data class ComparisonResult(
     val delta: BigDecimal?,
     val changes: List<StatChange> = emptyList(),
     val sourceId: SourceId? = null,
+    val normalizedLevel: Int? = null,
 )
 
 data class PetComparison(

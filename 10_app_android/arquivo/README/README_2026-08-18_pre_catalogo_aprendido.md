@@ -16,8 +16,7 @@ Compose, um serviço MediaProjection e um Preferences DataStore.
 - `compileSdk = targetSdk = minSdk = 36`.
 - AGP `9.3.0`, Gradle `9.5.0` e Compose BOM `2026.06.00`.
 - ML Kit Text Recognition bundled `16.0.1`.
-- DataStore Preferences com seis registros JSON, incluindo o catálogo local de
-  nomes de equipamentos aprendidos nas comparações.
+- DataStore Preferences com cinco registros JSON.
 - Sem backend, banco, Hilt, telemetria, anúncios, internet ou armazenamento.
 
 ## Compilar
@@ -51,7 +50,7 @@ teste instrumentado. O APK do aplicativo foi verificado sem essas imagens.
 - `parser`: números, percentuais, níveis e substats.
 - `scoring`: fórmula canônica e substituições.
 - `ocr`: classificação dos seis painéis, recorte e ML Kit.
-- `storage`: único DataStore, inclusive para o catálogo local de nomes.
+- `storage`: único DataStore.
 - `overlay`: captura sob demanda, bolha e cartão de resultado.
 - `ui`: tela principal, edição manual e recortes com prévia.
 
