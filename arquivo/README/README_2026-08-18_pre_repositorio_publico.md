@@ -3,10 +3,7 @@
 Aplicativo Android pessoal, inspirado no fluxo do Poke Genie, que lê telas do
 Forge Master localmente e compara o dano da build atual com um candidato.
 
-Repositório: <https://github.com/calabuta/forgemaster_assistente>.
-
-> Projeto pessoal e não oficial. Não possui vínculo, aprovação ou afiliação
-> com os desenvolvedores ou detentores da marca Forge Master.
+Repositório privado: <https://github.com/calabuta/forgemaster_assistente>.
 
 ## Estado
 
@@ -20,8 +17,8 @@ Repositório: <https://github.com/calabuta/forgemaster_assistente>.
   testes automatizados.
 - OCR bundled validado no emulador sobre as 15 capturas originais; as imagens
   entram somente no APK de teste, nunca no APK do aplicativo.
-- Build instalada e OCR de referência validado no Galaxy S24 Ultra; o checklist
-  físico completo permanece em andamento.
+- Validação física no Galaxy S24 Ultra ainda pendente porque o aparelho não
+  estava conectado durante esta entrega.
 
 ## Como usar o APK no S24 Ultra
 
@@ -54,7 +51,7 @@ no jogo.
 ## Validações concluídas
 
 - Android 16/API 36 em AVD ARM64.
-- 17 testes unitários.
+- 9 testes unitários.
 - 3 testes instrumentados: OCR das 15 capturas, persistência/desfazer e
   controles essenciais da interface.
 - Android Lint sem erros.
@@ -63,12 +60,6 @@ no jogo.
 
 ## Pendência real
 
-Concluir o checklist de `90_saidas/checklist_aceite_s24.md` no Galaxy S24 Ultra
-para validar toda a sequência de permissões One UI, captura, sobreposição,
-recortes e uso offline no aparelho-alvo.
-
-## Licença
-
-O código-fonte deste projeto é distribuído sob a licença MIT; consulte
-`LICENSE`. Marcas, nomes e elementos visuais do jogo presentes nas referências
-pertencem aos respectivos titulares.
+Executar o checklist de `90_saidas/checklist_aceite_s24.md` no Galaxy S24 Ultra
+para validar permissões One UI, captura, sobreposição, recortes e uso offline
+no aparelho-alvo.

@@ -1,6 +1,6 @@
 # Memória — ForgeMaster Assistente
 
-_Última atualização: 2026-08-18_
+_Última atualização: 2026-08-17_
 
 ## Estado atual
 
@@ -8,7 +8,7 @@ _Última atualização: 2026-08-18_
 - APK debug de entrega: `90_saidas/ForgeMaster-Assistente-mvp-debug.apk`.
 - Especificação canônica: `docs/escopo_mvp.md`.
 - Referências originais preservadas em `20_referencias/`.
-- Repositório GitHub canônico, em preparação para visibilidade pública:
+- Repositório GitHub privado canônico:
   `https://github.com/calabuta/forgemaster_assistente`.
 - O APK debug permanece local e não deve ser versionado no Git.
 
@@ -17,13 +17,13 @@ _Última atualização: 2026-08-18_
 - Android Studio Quail 3 `2026.1.3 Patch 1` em `/Applications/Android Studio.app`.
 - JBR do Android Studio usado pelo Gradle; nenhum Java separado instalado.
 - SDK Android 16/API 36, Build Tools, Platform Tools, Emulator e imagem ARM64
-  instalados no caminho padrão do Android SDK no macOS.
+  instalados em `/Users/joao/Library/Android/sdk`.
 - AVD Android 16 ARM64 criado como `ForgeMaster_API_36`.
 
 ## Validação concluída
 
-- 17 testes unitários cobrem parser, fórmula, tetos, Melee/Ranged, delta zero,
-  substituições, pets e normalização de nível.
+- 9 testes unitários cobrem parser, fórmula, tetos, Melee/Ranged, delta zero,
+  substituições e pets.
 - 3 testes instrumentados no AVD cobrem OCR das 15 capturas, persistência,
   troca atômica, desfazer e controles essenciais da interface.
 - Android Lint concluído sem erros.
@@ -34,10 +34,9 @@ _Última atualização: 2026-08-18_
 
 ## Pendência aberta
 
-- Concluir no Galaxy S24 Ultra o checklist de permissões One UI,
-  MediaProjection, sobreposição, recortes, sequência de candidatos e
-  funcionamento offline. O aparelho já foi conectado e recebeu builds de
-  teste; o aceite físico integral ainda não foi encerrado.
+- Validar no Galaxy S24 Ultra: conexão ADB, permissões One UI, MediaProjection,
+  sobreposição, recortes, sequência de candidatos e funcionamento offline.
+  O aparelho não estava conectado na conclusão desta implementação.
 
 ## Regra de manutenção
 

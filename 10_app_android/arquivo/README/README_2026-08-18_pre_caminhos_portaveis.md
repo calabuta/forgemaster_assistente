@@ -7,8 +7,7 @@ Compose, um serviço MediaProjection e um Preferences DataStore.
 
 - Android Studio Quail 3 `2026.1.3 Patch 1`.
 - JBR incluído no Android Studio.
-- Android SDK 36 em `$HOME/Library/Android/sdk` no macOS, ou no caminho
-  configurado em `ANDROID_SDK_ROOT`.
+- Android SDK 36 em `/Users/joao/Library/Android/sdk`.
 - AVD ARM64 `ForgeMaster_API_36` ou Galaxy S24 Ultra com Android 16.
 
 ## Configuração do projeto
@@ -27,7 +26,7 @@ Na pasta `10_app_android/`:
 
 ```bash
 JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
-ANDROID_SDK_ROOT="$HOME/Library/Android/sdk" \
+ANDROID_SDK_ROOT="/Users/joao/Library/Android/sdk" \
 ./gradlew assembleDebug
 ```
 
@@ -39,7 +38,7 @@ Com o AVD ou aparelho Android 16 conectado:
 
 ```bash
 JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
-ANDROID_SDK_ROOT="$HOME/Library/Android/sdk" \
+ANDROID_SDK_ROOT="/Users/joao/Library/Android/sdk" \
 ./gradlew testDebugUnitTest connectedDebugAndroidTest lintDebug
 ```
 

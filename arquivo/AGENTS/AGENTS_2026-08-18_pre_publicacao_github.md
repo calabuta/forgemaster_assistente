@@ -52,41 +52,6 @@ até que o usuário decida de outra forma.
   `docs/escopo_mvp.md`; ajustar `README.md` ou `MEMORY.md` somente se o resumo,
   a navegação ou o estado operacional também tiverem mudado.
 
-## Git e GitHub deste projeto
-
-- Repositório canônico: `https://github.com/calabuta/forgemaster_assistente`.
-- `origin` deve apontar para esse repositório. Antes de commit ou push,
-  conferir `git remote -v`, a branch atual, `git status` e o diff preparado.
-- Um pedido explícito como “suba”, “publique” ou “atualize o GitHub” autoriza
-  commit e push das alterações concluídas e relacionadas ao pedido. Na branch
-  `main`, o fluxo padrão deste projeto pode usar `git push origin main`; o
-  GitHub CLI `gh` não é necessário para esse push direto.
-- Pull request, release, tag e mudança de visibilidade são ações separadas.
-  Executá-las somente quando o usuário pedir ou confirmar especificamente.
-- Se existirem mudanças incompletas ou não relacionadas no diretório de
-  trabalho, não usar `git add -A`; preparar apenas os arquivos do escopo
-  confirmado e apontar o restante.
-- Antes do commit, executar as verificações proporcionais ao que mudou e
-  conferir `git diff --cached --check`. Não publicar uma alteração conhecida
-  como quebrada sem informar claramente o usuário.
-- Nunca versionar APKs, builds, caches, `local.properties`, credenciais,
-  tokens, chaves de assinatura, logs ou configurações particulares da máquina.
-  APKs continuam em `90_saidas/` ignorados pelo Git e só podem ser enviados
-  por GitHub Releases mediante pedido explícito.
-- Usar caminhos portáveis na documentação atual, como `$HOME` e
-  `ANDROID_SDK_ROOT`, evitando novos caminhos absolutos pessoais.
-- O usuário autorizou que a planilha `20_referencias/ForgeMaster.xlsx` e as 15
-  capturas de referência já versionadas permaneçam no repositório caso ele se
-  torne público. Essa autorização não se estende automaticamente a novas
-  capturas, planilhas ou outros dados pessoais adicionados no futuro.
-- Antes de tornar o repositório público, confirmar que o README não o descreve
-  como privado, que existe uma licença escolhida pelo usuário e que há aviso de
-  projeto não oficial. A confirmação para publicar código não autoriza, por si
-  só, mudar a visibilidade do repositório.
-- Depois do push, verificar que a branch local e `origin` apontam para o mesmo
-  commit e informar ao usuário o hash publicado. Não declarar publicação antes
-  dessa verificação.
-
 ## Implementação e validação futura
 
 Quando a implementação for autorizada:
